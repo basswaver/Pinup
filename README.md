@@ -8,8 +8,6 @@ Written with electron for Macos
 
 Save a file using `Command S`,
 
-Save over a different file using `Command Shift S`
-
 Load a file using `Command O`
 
 Open an instance using `Command N`

@@ -1,2 +1,4 @@
 node_modules/
 config/
+release-builds
+.ignore/

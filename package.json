@@ -1,10 +1,12 @@
 {
     "name": "Pinup",
-    "version": "0.1.0",
+    "version": "0.2.1",
     "description": "A lightweight notepad",
     "main": "main.js",
     "scripts": {
-        "start": "electron ."
+        "start": "electron .",
+        "debug": "electron . --inspect=1313",
+        "build-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --prune=true --out=release-builds"
     },
     "repository": {
         "type": "git",
@@ -17,10 +19,15 @@
     },
     "homepage": "https://gitlab.com/BassWaver/Pinup#readme",
     "devDependencies": {
-        "cheerio": "^1.0.0-rc.2",
+        "ajv": "^6.5.4",
+        "caller-id": "^0.1.0",
         "electron": "^3.0.6",
-        "electron-localshortcut": "^3.1.0",
-        "fs": "0.0.1-security"
+        "electron-builder": "^20.29.0"
     },
-    "dependencies": {}
+    "productname": "Pinup",
+    "dependencies": {
+        "fs": "0.0.1-security",
+        "electron-localshortcut": "^3.1.0",
+        "electron-packager": "^12.2.0"
+    }
 }

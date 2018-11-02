@@ -65,6 +65,7 @@ function listeners() {
     ipcRenderer.on("error", showError)
 }
 
-function saveSubmit(e) {
-    console.log(e)
-}
+document.getElementById("floater").addEventListener("click", function(event){
+    event.target.removeEventListener("click", arguments.callee)
+    ipcRenderer.send("float")
+})
