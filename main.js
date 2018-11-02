@@ -10,10 +10,7 @@ var workingPath = null
 var newContent = null
 var windows = []
 var settings = null
-
-ipcMain.on("ready", function() {
-    alert("ready")
-})
+var flag = false
 
 function open(window, path) {
     fs.readFile(path, function read (error, data) {
@@ -48,6 +45,19 @@ Calls.error = function(window, error) {
     window.webContents.send(error)
 }
 
+function remove(item, array) {
+    for(
+        var i = 0;
+        i < array.length;
+        i++
+    ) {
+        if(array[i] == item) {
+            array.splice(i, 1)
+        }
+    }
+    return array
+}
+
 function save(path, content) {
     workingPath = parsePath(path)
     if(workingPath == null) {
@@ -60,6 +70,52 @@ function save(path, content) {
         }
     })
     workingPath = null
+}
+
+function toggleFloating() {
+    flag = true
+    window = electron.BrowserWindow.getFocusedWindow()
+    if (window == null) {
+        return
+    }
+    if(electron.app.dock.isVisible()) {
+        electron.app.dock.hide()
+    }
+    else{
+        electron.app.dock.show()
+    }
+    window.close()
+    setTimeout(renderNew, 100)
+    flag = false
+}
+
+function renderNew() {
+    let window = new electron.BrowserWindow({
+        width: 200,
+        height: 200,
+        frame: true,
+    })
+    window.loadFile("src/root.html")
+    window.setAlwaysOnTop(true, "floating", 1)
+    window.setVisibleOnAllWorkspaces(true)
+    window.setFullScreenable(false)
+    handles(window)
+    windows.push(window)
+}
+
+function renderSettings(width = 200, height = 800) {
+    if(settings) {
+        return
+    }
+    var window = new electron.BrowserWindow({
+        width: width,
+        height: height,
+        frame: true,
+    })
+    window.loadFile("src/settings.html")
+    window.setVisibleOnAllWorkspaces(true)
+    window.setFullScreenable(false)
+    settings = window
 }
 
 function handles(window) {
@@ -89,47 +145,25 @@ function handles(window) {
     ipcMain.on("open", function(event, path) {
         open(electron.BrowserWindow.getFocusedWindow(), path)
     })
-
-}
-
-function init() {
-    electron.app.dock.hide()
-    renderNew()
-}
-
-function renderNew(options) {
-    let window = new electron.BrowserWindow({
-        width: 200,
-        height: 200,
-        frame: true,
+    // Toggle floating
+    ipcMain.once("float", function(event) {
+        setTimeout(toggleFloating, 100)
     })
-    window.loadFile("src/root.html")
-    window.setAlwaysOnTop(true, "floating", 1)
-    window.setVisibleOnAllWorkspaces(true)
-    window.setFullScreenable(false)
-    handles(window)
-    windows.push(window)
-    window.on("closed", function(){
-        windows.splice(windows.indexOf(window), 1)
-        if(windows.length == 0) (
+}
+
+function appHandles() {
+    electron.app.on("window-all-closed", function() {
+        if(!flag) {
             electron.app.quit()
-        )
+        }
+    })
+
+    electron.app.on("activate", function() {
+        if(electron.BrowserWindow.getAllWindows().length == 0) {
+            renderNew()
+        }
     })
 }
 
-function renderSettings(width = 200, height = 800) {
-    if(settings) {
-        return
-    }
-    var window = new electron.BrowserWindow({
-        width: width,
-        height: height,
-        frame: true,
-    })
-    window.loadFile("src/settings.html")
-    window.setVisibleOnAllWorkspaces(true)
-    window.setFullScreenable(false)
-    settings = window
-}
-
-electron.app.on("ready", init)
+appHandles()
+electron.app.on("ready", renderNew)
