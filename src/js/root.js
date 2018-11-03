@@ -1,22 +1,41 @@
 const {ipcRenderer} = require('electron')
 
-workingPath = null
+const history = [""]
+
 
 const Save = new Object()
 const Editor = new Object()
 
-Save.showInput = function() {
-}
-
 Save.save = function(event) {
-    document.getElementById("pathDialogPrefix").innerHTML = "save"
-    document.getElementById("pathDialog").classList.add("flex")
-    document.getElementById("pathDialogInput").focus()
+    renderInput("save")
     document.getElementById("pathDialogInput").onkeydown = function(e){
         if(e.keyCode == 13) {
-            workingPath = document.getElementById("pathDialogInput").value
-            ipcRenderer.send("save", workingPath, document.getElementById("editor").value)
-            document.getElementById("pathDialog").classList.remove("flex")
+            history.push(document.getElementById("pathDialogInput").value)
+            ipcRenderer.send(
+                "save",
+                history[history.length - 1],
+                document.getElementById("editor").value
+            )
+            destroyInput()
+        }
+        switch(e.keyCode) {
+            case 13:
+                history.push(document.getElementById("pathDialogInput").value)
+                ipcRenderer.send(
+                    "save",
+                    history[history.length - 1],
+                    document.getElementById("editor").value
+                )
+            case 38:
+                if(history[historyPointer - 1] != undefined) {
+                    document.getElementById("pathDialogInput").value = history[--historyPointer]
+                }
+                break
+            case 40:
+                if(history[historyPointer + 1] != undefined) {
+                    document.getElementById("pathDialogInput").value = history[++historyPointer]
+                }
+                break
         }
     }
 }
@@ -26,34 +45,49 @@ Editor.open = function(event, content) {
 }
 
 Editor.getPathToOpen = function(event) {
-    document.getElementById("pathDialogPrefix").innerHTML = "open"
-    document.getElementById("pathDialog").classList.add("flex")
-    document.getElementById("pathDialogInput").focus()
+    renderInput("open")
+    var historyPointer = history.length - 1
     document.getElementById("pathDialogInput").onkeydown = function(e) {
-        if(e.keyCode == 13) {
-            workingPath = document.getElementById("pathDialogInput").value
-            ipcRenderer.send("open", workingPath)
-            document.getElementById("pathDialog").classList.remove("flex")
+        switch(e.keyCode) {
+            case 13:
+                history.push(document.getElementById("pathDialogInput").value)
+                ipcRenderer.send(
+                    "open",
+                    history[history.length - 1]
+                )
+                destroyInput()
+                break;
+            case 38:
+                if(history[historyPointer - 1] != undefined) {
+                    document.getElementById("pathDialogInput").value = history[--historyPointer]
+                }
+                break
+            case 40:
+                if(history[historyPointer + 1] != undefined) {
+                    document.getElementById("pathDialogInput").value = history[++historyPointer]
+                }
+                break
         }
     }
 }
 
-Editor.changeFontSize = function(event, type) {
-    editor = document.getElementById("editor")
-    switch (type) {
-        case "+":
-            console.log(editor.style.fontSize)
-            break;
-        default:
-            console.log(editor.style.fontSize)
+function renderInput(message) {
+    var historyIndex = history.length - 1
+    document.getElementById("pathDialogPrefix").innerHTML = message
+    document.getElementById("pathDialog").classList.add("flex")
+    document.getElementById("pathDialogInput").innerHTML = history[historyIndex]
+    document.getElementById("pathDialogInput").focus()
+}
 
-    }
+function destroyInput() {
+    document.getElementById("editor").focus()
+    document.getElementById("pathDialog").classList.remove("flex")
+    document.getElementById("pathDialogInput").onkeydown = null
 }
 
 function showError(event, error) {
     var message
     var input = document.getElementById("pathDialogInput").value
-    console.log(error)
     switch (error["code"]) {
         case "ENOENT":
             message = `Can't find the file "${input}"`
@@ -63,6 +97,7 @@ function showError(event, error) {
             break
         default:
             message = "There was some error"
+            break
 
     }
     var target = document.getElementById("info")
@@ -91,14 +126,33 @@ function purgeClass(className) {
     }
 }
 
+function toggleFloat() {
+    ipcRenderer.send(
+        "float",
+        document.getElementById("editor").value,
+        history
+    )
+}
+
 function listeners() {
     document.getElementById("editor").focus()
     ipcRenderer.on("save", Save.save)
     ipcRenderer.on("open", Editor.open)
     ipcRenderer.on("getPathToOpen", Editor.getPathToOpen)
     ipcRenderer.on("error", showError)
-    ipcRenderer.once("float", function(event) {
-        ipcRenderer.send("float")
+    ipcRenderer.once("float", toggleFloat)
+    ipcRenderer.on("floatingIndicator", function(event, isFloating) {
+        document.getElementById("floater").style.background = ["#71a4f7", "#ff9bbe"][~~isFloating]
+    }),
+    ipcRenderer.once("restore", function(event, stash) {
+        document.getElementById("editor").value = stash[0]
+        for(
+            var i = 0;
+            i < stash[1].length;
+            i++
+        ) {
+            history.push(stash[1][i])
+        }
     })
     document.getElementById("editor").addEventListener("focus", function() {
         if(document.getElementsByClassName("flex").length != 0){

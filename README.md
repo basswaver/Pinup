@@ -12,6 +12,8 @@ Load a file using `Command O`
 
 Open an instance using `Command N`
 
-Close an instance using `Command W`
+Close a window using `Command W`
+
+Minimize a window using `Command M`
 
 Toggle floating mode using `Command F`

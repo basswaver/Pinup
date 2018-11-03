@@ -1,7 +1,7 @@
 {
     "name": "Pinup",
-    "version": "0.3.0",
-    "description": "A lightweight notepad",
+    "version": "0.4.0-a",
+    "description": "A floating notepad",
     "main": "main.js",
     "scripts": {
         "start": "electron .",

@@ -10,6 +10,7 @@ const Calls = new Object()
 var newContent = null
 var settings = null
 var flag = false
+var isFloating = false
 
 function parsePath(path) {
     if(path == null || path == "") {
@@ -43,27 +44,52 @@ Calls.fontSize = function(window, type) {
     window.webContents.send("fontSize", type)
 }
 
+Calls.showPath = function(window, path) {
+    window.webContents.send("showPath", path)
+}
+
+Calls.popHistory = function(window) {
+    window.webContents.send("popHistory")
+}
+
+Calls.stash = function(window) {
+    window.webContents.send("stash")
+}
+
+Calls.restore = function(window, stash) {
+    window.webContents.send("restore", stash)
+}
+
+Calls.floatingIndicator = function(window) {
+    window.webContents.send("floatingIndicator", isFloating)
+}
+
 function open(window, path) {
+    path = parsePath(path)
     fs.readFile(path, function read (error, data) {
         if(error) {
             Calls.error(electron.BrowserWindow.getFocusedWindow(), error)
+            return
         }
         try {
             Calls.open(window, data)
+            return
         }
         catch(e) {
             Calls.error(electron.BrowserWindow.getFocusedWindow(), e)
+            return
         }
     })
 }
 
 function save(path, content) {
-    workingPath = parsePath(path)
-    if(workingPath == null) {
+    path = parsePath(path)
+    Calls.showPath(electron.BrowserWindow.getFocusedWindow(), path)
+    if(path == null) {
         Calls.save(electron.BrowserWindow.getFocusedWindow(), true)
         return
     }
-    fs.writeFile(workingPath, content, function(error) {
+    fs.writeFile(path, content, function(error) {
         if(error) {
             Calls.error(electron.BrowserWindow.getFocusedWindow(), error)
             return
@@ -71,9 +97,11 @@ function save(path, content) {
     })
 }
 
-function toggleFloating() {
+function toggleFloating(content, history) {
     flag = true
+    isFloating = !isFloating
     window = electron.BrowserWindow.getFocusedWindow()
+    Calls.stash(window)
     if (window == null) {
         return
     }
@@ -84,11 +112,13 @@ function toggleFloating() {
         electron.app.dock.show()
     }
     window.close()
-    setTimeout(renderNew, 1)
+    setTimeout(function() {
+        renderNew(true, [content, history])
+    }, 1)
     flag = false
 }
 
-function renderNew() {
+function renderNew(restoring, stash) {
     let window = new electron.BrowserWindow({
         width: 200,
         height: 200,
@@ -99,6 +129,17 @@ function renderNew() {
     window.setVisibleOnAllWorkspaces(true)
     window.setFullScreenable(false)
     handles(window)
+    if(restoring) {
+        window.webContents.on("did-finish-load", function() {
+            Calls.restore(window, stash)
+        })
+    }
+    window.webContents.on("did-finish-load", function() {
+        Calls.floatingIndicator(window)
+        if(restoring) {
+            Calls.restore(window, stash)
+        }
+    })
     window.show()
 }
 
@@ -147,9 +188,18 @@ function handles(window) {
     ipcMain.on("open", function(event, path) {
         open(electron.BrowserWindow.getFocusedWindow(), path)
     })
+    // Stash window content before page destruction
+    ipcMain.on("stash", function(event, editor, history) {
+        stash["editor"] = editor
+        stash["history"] = history
+    })
     // Toggle floating
-    ipcMain.once("float", function(event) {
-        toggleFloating()
+    ipcMain.once("float", function(event, content, history) {
+        toggleFloating(content, history)
+    })
+    // Log before page destruction
+    ipcMain.on("log", function(event, message) {
+        console.log(message);
     })
 }
 
@@ -166,65 +216,70 @@ function appHandles() {
 
 function buildMenu() {
     template = [
-    {
-    label: electron.app.getName(),
-    submenu: [
-      { role: "about" },
-      { type: "separator" },
-      { type: "separator" },
-      { role: "hide" },
-      { role: "hideothers" },
-      { role: "unhide" },
-      { type: "separator" },
-      { role: "quit" }
+        {
+            label: electron.app.getName(),
+            submenu: [
+                {
+                    label: `About ${electron.app.getName()}`,
+                    click() {
+                        // TODO redirect to an about page
+                    }
+                },
+                {
+                    label: "Quit",
+                    click() {
+                        electron.app.quit()
+                    },
+                    accelerator: "Cmd+Q"
+                },
+            ]
+        },
+        {
+            label: "Edit",
+            submenu: [
+                {
+                    role: "undo"
+                },
+                {
+                    role: "redo"
+                },
+                {
+                    role: "cut"
+                },
+                {
+                    role: "copy"
+                },
+                {
+                    role: "paste"
+                },
+                {
+                    role: "delete"
+                },
+                {
+                    role: "selectall"
+                },
+            ]
+        },
+        {
+            label: "View",
+            submenu: [
+                {
+                    role: "toggleDevTools"
+                },
+                {
+                    role: "close"
+                },
+                {
+                    role: "minimize"
+                }
+            ]
+        }
     ]
-},
-    {
-    label: "Edit",
-    submenu: [
-      { role: "undo"},
-      { role: "redo" },
-      { type: "separator" },
-      { role: "cut" },
-      { role: "copy" },
-      { role: "paste" },
-      { role: "pasteandmatchstyle" },
-      { role: "delete" },
-      { role: "selectall" }
-    ]
-    },
-    {
-    label: "View",
-    submenu: [
-        { role: "toggleDevTools"},
-        { role: "close" },
-        { role: "minimize" },
-        { type: "separator" },
-    ]
-    },
-    {
-    role: "window",
-    submenu: [
-      { role: "minimize" },
-      { role: "close" }
-    ]
-    },
-    {
-    role: "help",
-    submenu: [
-      {
-        label: "Learn More",
-        click () { require("electron").shell.openExternal("https://electronjs.org") }
-      }
-    ]
-    }
-    ]
-        menu = new electron.Menu.buildFromTemplate(template)
-        electron.Menu.setApplicationMenu(menu)
-    }
+    menu = new electron.Menu.buildFromTemplate(template)
+    electron.Menu.setApplicationMenu(menu)
+}
 
 electron.app.on("ready", function() {
-    console.log(electron.app.getName())
     buildMenu()
     appHandles()
     renderNew()
