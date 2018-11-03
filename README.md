@@ -13,3 +13,5 @@ Load a file using `Command O`
 Open an instance using `Command N`
 
 Close an instance using `Command W`
+
+Toggle floating mode using `Command F`

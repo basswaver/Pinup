@@ -1,3 +1,4 @@
+
 const electron = require("electron")
 const {ipcMain} = require("electron")
 const fs = require("fs")
@@ -6,20 +7,9 @@ const os = require("os")
 
 const Calls = new Object()
 
-var workingPath = null
 var newContent = null
-var windows = []
 var settings = null
 var flag = false
-
-function open(window, path) {
-    fs.readFile(path, function read (error, data) {
-        if(error) {
-            throw "Error reading file"
-        }
-        Calls.open(window, data)
-    })
-}
 
 function parsePath(path) {
     if(path == null || path == "") {
@@ -42,20 +32,29 @@ Calls.getPathToOpen = function(window) {
 }
 
 Calls.error = function(window, error) {
-    window.webContents.send(error)
+    window.webContents.send("error", error)
 }
 
-function remove(item, array) {
-    for(
-        var i = 0;
-        i < array.length;
-        i++
-    ) {
-        if(array[i] == item) {
-            array.splice(i, 1)
+Calls.float = function(window) {
+    window.webContents.send("float")
+}
+
+Calls.fontSize = function(window, type) {
+    window.webContents.send("fontSize", type)
+}
+
+function open(window, path) {
+    fs.readFile(path, function read (error, data) {
+        if(error) {
+            Calls.error(electron.BrowserWindow.getFocusedWindow(), error)
         }
-    }
-    return array
+        try {
+            Calls.open(window, data)
+        }
+        catch(e) {
+            Calls.error(electron.BrowserWindow.getFocusedWindow(), e)
+        }
+    })
 }
 
 function save(path, content) {
@@ -67,9 +66,9 @@ function save(path, content) {
     fs.writeFile(workingPath, content, function(error) {
         if(error) {
             Calls.error(electron.BrowserWindow.getFocusedWindow(), error)
+            return
         }
     })
-    workingPath = null
 }
 
 function toggleFloating() {
@@ -85,7 +84,7 @@ function toggleFloating() {
         electron.app.dock.show()
     }
     window.close()
-    setTimeout(renderNew, 100)
+    setTimeout(renderNew, 1)
     flag = false
 }
 
@@ -93,14 +92,14 @@ function renderNew() {
     let window = new electron.BrowserWindow({
         width: 200,
         height: 200,
-        frame: true,
+        frame: false,
     })
     window.loadFile("src/root.html")
     window.setAlwaysOnTop(true, "floating", 1)
     window.setVisibleOnAllWorkspaces(true)
     window.setFullScreenable(false)
     handles(window)
-    windows.push(window)
+    window.show()
 }
 
 function renderSettings(width = 200, height = 800) {
@@ -119,23 +118,26 @@ function renderSettings(width = 200, height = 800) {
 }
 
 function handles(window) {
-    localShortcut.register(window, "CmdOrCtrl+S", function() {
-        Calls.save(electron.BrowserWindow.getFocusedWindow(), (workingPath == null || workingPath == ""))
+    localShortcut.register(window, "Cmd+S", function() {
+        Calls.save(window)
     })
-    localShortcut.register(window, "CommandOrControl+Shift+S", function() {
-        Calls.save(electron.BrowserWindow.getFocusedWindow(), true)
+    localShortcut.register(window, "Cmd+O", function() {
+        Calls.getPathToOpen(window)
     })
-    localShortcut.register(window, "CmdOrCtrl+O", function() {
-        Calls.getPathToOpen(electron.BrowserWindow.getFocusedWindow())
+    localShortcut.register(window, "Cmd+,", function() {
+        // this is a placeholder, will open settings
     })
-    localShortcut.register(window, "CmdOrCtrl+,", function() {
-
-    })
-    localShortcut.register(window, "CmdOrCtrl+N", function() {
+    localShortcut.register(window, "Cmd+N", function() {
         renderNew()
     })
-    localShortcut.register(window, "CmdOrCtrl+Alt+N", function() {
-
+    localShortcut.register(window, "Cmd+F", function() {
+        Calls.float(window)
+    })
+    localShortcut.register(window, "Cmd+=", function() {
+        Calls.fontSize(window, "+")
+    })
+    localShortcut.register(window, "Cmd+-", function() {
+        Calls.fontSize(window, "-")
     })
     // Save from render
     ipcMain.on("save", function(event, path, content) {
@@ -147,7 +149,7 @@ function handles(window) {
     })
     // Toggle floating
     ipcMain.once("float", function(event) {
-        setTimeout(toggleFloating, 100)
+        toggleFloating()
     })
 }
 
@@ -157,13 +159,73 @@ function appHandles() {
             electron.app.quit()
         }
     })
+    electron.app.on("close", function() {
 
-    electron.app.on("activate", function() {
-        if(electron.BrowserWindow.getAllWindows().length == 0) {
-            renderNew()
-        }
     })
 }
 
-appHandles()
-electron.app.on("ready", renderNew)
+function buildMenu() {
+    template = [
+    {
+    label: electron.app.getName(),
+    submenu: [
+      { role: "about" },
+      { type: "separator" },
+      { type: "separator" },
+      { role: "hide" },
+      { role: "hideothers" },
+      { role: "unhide" },
+      { type: "separator" },
+      { role: "quit" }
+    ]
+},
+    {
+    label: "Edit",
+    submenu: [
+      { role: "undo"},
+      { role: "redo" },
+      { type: "separator" },
+      { role: "cut" },
+      { role: "copy" },
+      { role: "paste" },
+      { role: "pasteandmatchstyle" },
+      { role: "delete" },
+      { role: "selectall" }
+    ]
+    },
+    {
+    label: "View",
+    submenu: [
+        { role: "toggleDevTools"},
+        { role: "close" },
+        { role: "minimize" },
+        { type: "separator" },
+    ]
+    },
+    {
+    role: "window",
+    submenu: [
+      { role: "minimize" },
+      { role: "close" }
+    ]
+    },
+    {
+    role: "help",
+    submenu: [
+      {
+        label: "Learn More",
+        click () { require("electron").shell.openExternal("https://electronjs.org") }
+      }
+    ]
+    }
+    ]
+        menu = new electron.Menu.buildFromTemplate(template)
+        electron.Menu.setApplicationMenu(menu)
+    }
+
+electron.app.on("ready", function() {
+    console.log(electron.app.getName())
+    buildMenu()
+    appHandles()
+    renderNew()
+})
