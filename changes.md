@@ -1,4 +1,4 @@
-Changelog 0.3.0 -> 0.4.0-a
+Changelog 0.3.0 -> 0.4.0-b
 
 Features Added:
  - History navigation with arrow up/down
