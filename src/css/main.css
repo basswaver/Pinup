@@ -21,6 +21,10 @@ input {
   resize  : none;
 }
 
+::-webkit-scrollbar {
+    display: none;
+}
+
 #root {
   display        : flex;
   position       : absolute;
