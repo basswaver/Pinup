@@ -1,9 +1,9 @@
-
 const electron = require("electron")
 const {ipcMain} = require("electron")
 const fs = require("fs")
 const localShortcut = require("electron-localshortcut")
 const os = require("os")
+const request = require("request")
 
 const Calls = new Object()
 
@@ -12,6 +12,7 @@ var settings = null
 var flag = false
 var isFloating = false
 
+// @auto-fold here
 function parsePath(path) {
     if(path == null || path == "") {
         return null
@@ -20,50 +21,67 @@ function parsePath(path) {
     return path
 }
 
+// @auto-fold here
 Calls.save = function(window, force) {
     window.webContents.send("save", force)
 }
 
+// @auto-fold here
 Calls.open = function(window, data){
     window.webContents.send("open", data)
 }
 
+// @auto-fold here
 Calls.getPathToOpen = function(window) {
     window.webContents.send("getPathToOpen")
 }
 
+// @auto-fold here
 Calls.error = function(window, error) {
     window.webContents.send("error", error)
 }
 
+// @auto-fold here
 Calls.float = function(window) {
     window.webContents.send("float")
 }
 
-Calls.fontSize = function(window, type) {
-    window.webContents.send("fontSize", type)
+// @auto-fold here
+Calls.changeSize = function(window, type) {
+    window.webContents.send("changeSize", type)
 }
 
+// @auto-fold here
 Calls.showPath = function(window, path) {
     window.webContents.send("showPath", path)
 }
 
+// @auto-fold here
 Calls.popHistory = function(window) {
     window.webContents.send("popHistory")
 }
 
+// @auto-fold here
 Calls.stash = function(window) {
     window.webContents.send("stash")
 }
 
+// @auto-fold here
 Calls.restore = function(window, stash) {
     window.webContents.send("restore", stash)
 }
 
+// @auto-fold here
 Calls.floatingIndicator = function(window) {
     window.webContents.send("floatingIndicator", isFloating)
 }
 
+// @auto-fold here
+Calls.openImage = function(window, type, image) {
+    window.webContents.send("openImage", type, image)
+}
+
+// @auto-fold here
 function open(window, path) {
     path = parsePath(path)
     fs.readFile(path, function read (error, data) {
@@ -82,6 +100,25 @@ function open(window, path) {
     })
 }
 
+// @auto-fold here
+function openImage(window, path) {
+    if(path.slice(0, 4) == "http") {
+        format = {
+            url: path,
+            method: "GET",
+            encoding: "binary"
+        }
+        request(format, function(error, response, body) {
+            if(error) {
+                Calls.error(window, `Can't find the url ${format.url}`)
+                return
+            }
+            Calls.openImage(window, "binary", body)
+        })
+    }
+}
+
+// @auto-fold here
 function save(path, content) {
     path = parsePath(path)
     Calls.showPath(electron.BrowserWindow.getFocusedWindow(), path)
@@ -97,6 +134,7 @@ function save(path, content) {
     })
 }
 
+// @auto-fold here
 function toggleFloating(content, history) {
     flag = true
     isFloating = !isFloating
@@ -118,6 +156,7 @@ function toggleFloating(content, history) {
     flag = false
 }
 
+// @auto-fold here
 function renderNew(restoring, stash) {
     let window = new electron.BrowserWindow({
         width: 200,
@@ -128,7 +167,7 @@ function renderNew(restoring, stash) {
     window.setAlwaysOnTop(true, "floating", 1)
     window.setVisibleOnAllWorkspaces(true)
     window.setFullScreenable(false)
-    handles(window)
+    handles()
     if(restoring) {
         window.webContents.on("did-finish-load", function() {
             Calls.restore(window, stash)
@@ -143,6 +182,7 @@ function renderNew(restoring, stash) {
     window.show()
 }
 
+// @auto-fold here
 function renderSettings(width = 200, height = 800) {
     if(settings) {
         return
@@ -158,35 +198,15 @@ function renderSettings(width = 200, height = 800) {
     settings = window
 }
 
-function handles(window) {
-    localShortcut.register(window, "Cmd+S", function() {
-        Calls.save(window)
-    })
-    localShortcut.register(window, "Cmd+O", function() {
-        Calls.getPathToOpen(window)
-    })
-    localShortcut.register(window, "Cmd+,", function() {
-        // this is a placeholder, will open settings
-    })
-    localShortcut.register(window, "Cmd+N", function() {
-        renderNew()
-    })
-    localShortcut.register(window, "Cmd+F", function() {
-        Calls.float(window)
-    })
-    localShortcut.register(window, "Cmd+=", function() {
-        Calls.fontSize(window, "+")
-    })
-    localShortcut.register(window, "Cmd+-", function() {
-        Calls.fontSize(window, "-")
-    })
+// @auto-fold here
+function handles() {
     // Save from render
     ipcMain.on("save", function(event, path, content) {
         save(path, content)
     })
     // Open from render
     ipcMain.on("open", function(event, path) {
-        open(electron.BrowserWindow.getFocusedWindow(), path)
+        open(window, path)
     })
     // Stash window content before page destruction
     ipcMain.on("stash", function(event, editor, history) {
@@ -201,8 +221,20 @@ function handles(window) {
     ipcMain.on("log", function(event, message) {
         console.log(message);
     })
+    // Load image
+    ipcMain.on("image", function(event, path) {
+        frame = electron.BrowserWindow.getFocusedWindow()
+        openImage(frame, path)
+    })
+    // Set window aspect ratio
+    ipcMain.on("setAspectRatio", function(event, ratio) {
+        frame = electron.BrowserWindow.getFocusedWindow()
+        frame.setSize(parseInt(200*ratio), 200)
+        frame.setAspectRatio(ratio)
+    })
 }
 
+// @auto-fold here
 function appHandles() {
     electron.app.on("window-all-closed", function() {
         if(!flag) {
@@ -214,6 +246,7 @@ function appHandles() {
     })
 }
 
+// @auto-fold here
 function buildMenu() {
     template = [
         {
@@ -235,6 +268,25 @@ function buildMenu() {
             ]
         },
         {
+            label: "File",
+            submenu: [
+                {
+                    label: "Open",
+                    accelerator: "Cmd+O",
+                    click() {
+                        Calls.getPathToOpen(electron.BrowserWindow.getFocusedWindow())
+                    }
+                },
+                {
+                    label: "Save",
+                    accelerator: "Cmd+S",
+                    click() {
+                        Calls.save(electron.BrowserWindow.getFocusedWindow())
+                    }
+                }
+            ]
+        },
+        {
             label: "Edit",
             submenu: [
                 {
@@ -253,9 +305,6 @@ function buildMenu() {
                     role: "paste"
                 },
                 {
-                    role: "delete"
-                },
-                {
                     role: "selectall"
                 },
             ]
@@ -264,13 +313,56 @@ function buildMenu() {
             label: "View",
             submenu: [
                 {
-                    role: "toggleDevTools"
+                    label: "Grow Font",
+                    accelerator: "Cmd+=",
+                    click() {
+                        Calls.changeSize(electron.BrowserWindow.getFocusedWindow(), 1.25)
+                    }
                 },
                 {
-                    role: "close"
+                    label: "Shrink Font",
+                    accelerator: "Cmd+-",
+                    click() {
+                        Calls.changeSize(electron.BrowserWindow.getFocusedWindow(), .8)
+                    }
+                },
+                {
+                    label: "Settings",
+                    accelerator: "Cmd+,",
+                    click() {
+                        renderSettings()
+                    }
+                },
+                {
+                    type: "separator"
+                },
+                {
+                    role: "toggleDevTools"
+                },
+            ]
+        },
+        {
+            label: "Window",
+            submenu: [
+                {
+                    label: "Float",
+                    accelerator: "Cmd+F",
+                    click() {
+                        Calls.float(electron.BrowserWindow.getFocusedWindow())
+                    }
+                },
+                {
+                    label: "New",
+                    accelerator: "Cmd+N",
+                    click() {
+                        renderNew()
+                    }
                 },
                 {
                     role: "minimize"
+                },
+                {
+                    role: "close"
                 }
             ]
         }
@@ -279,6 +371,7 @@ function buildMenu() {
     electron.Menu.setApplicationMenu(menu)
 }
 
+// @auto-fold here
 electron.app.on("ready", function() {
     buildMenu()
     appHandles()

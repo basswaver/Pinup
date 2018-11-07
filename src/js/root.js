@@ -1,11 +1,14 @@
 const {ipcRenderer} = require('electron')
 
 const history = [""]
+const formats = ["text", "image"]
+const displayClass = "editor"
 
 
 const Save = new Object()
 const Editor = new Object()
 
+// @auto-fold here
 Save.save = function(event) {
     renderInput("Save")
     var historyPointer = history.length - 1
@@ -44,10 +47,14 @@ Save.save = function(event) {
     }
 }
 
+// @auto-fold here
 Editor.open = function(event, content) {
+    document.getElementById("image").classList.remove("flex")
+    document.getElementById("editor").classList.remove("hide")
     document.getElementById("editor").value = content
 }
 
+// @auto-fold here
 Editor.getPathToOpen = function(event) {
     renderInput("open")
     var historyPointer = history.length - 1
@@ -55,10 +62,7 @@ Editor.getPathToOpen = function(event) {
         switch(e.keyCode) {
             case 13:
                 historyPush()
-                ipcRenderer.send(
-                    "open",
-                    history[history.length - 1]
-                )
+                Editor.handlePath(history[history.length - 1].split(": "))
                 destroyInput()
                 break;
             case 38:
@@ -78,6 +82,45 @@ Editor.getPathToOpen = function(event) {
     }
 }
 
+// @auto-fold here
+Editor.handlePath = function(path) {
+    if(!formats.includes(path[0])) {
+        ipcRenderer.send(
+            "open",
+            path[0]
+        )
+    }
+    console.log("fullpath: ", path[0], path[1])
+    ipcRenderer.send(
+        path[0],
+        path[1]
+    )
+}
+
+// @auto-fold here
+Editor.openImage = function(event, type, image) {
+    var imageObject = new Image()
+    var target = document.getElementById("image")
+    if(type == "binary") {
+        imageObject.src = `data:image/png;base64, ${btoa(image)}`
+    }
+    imageObject.onload = function() {
+        console.log("sending aspect ratio for ", image)
+        ipcRenderer.send("setAspectRatio", imageObject.width/imageObject.height)
+        target.src = imageObject.src
+        document.getElementById("editor").classList.add("hide")
+        target.classList.add("flex")
+    }
+}
+
+// @auto-fold here
+Editor.changeFontSize = function(factor) {
+    var target = document.getElementById("editor")
+    var computedSize = parseFloat(window.getComputedStyle(target).fontSize)
+    target.style.fontSize = `${computedSize * factor}`
+}
+
+// @auto-fold here
 function renderInput(message) {
     var historyIndex = history.length - 1
     document.getElementById("pathDialogPrefix").innerHTML = message
@@ -86,6 +129,7 @@ function renderInput(message) {
     document.getElementById("pathDialogInput").focus()
 }
 
+// @auto-fold here
 function destroyInput() {
     setTimeout(function() {
         document.getElementById("editor").focus()
@@ -94,6 +138,7 @@ function destroyInput() {
     document.getElementById("pathDialogInput").onkeydown = null
 }
 
+// @auto-fold here
 function showError(event, error) {
     var message
     var input = document.getElementById("pathDialogInput").value
@@ -105,7 +150,7 @@ function showError(event, error) {
             message = `"${input}" is a directory`
             break
         default:
-            message = "There was some error"
+            message = error
             break
 
     }
@@ -124,17 +169,7 @@ function showError(event, error) {
     }, 2000)
 }
 
-function purgeClass(className) {
-    while(true) {
-        try{
-            document.getElementsByClassName("flex")[0].classList.remove("flex")
-        }
-        catch {
-            break
-        }
-    }
-}
-
+// @auto-fold here
 function toggleFloat() {
     ipcRenderer.send(
         "float",
@@ -143,6 +178,7 @@ function toggleFloat() {
     )
 }
 
+// @auto-fold here
 function historyPush(path) {
     if(path == undefined) {
         path = document.getElementById("pathDialogInput").value
@@ -152,16 +188,27 @@ function historyPush(path) {
     }
 }
 
+// @auto-fold here
 function listeners() {
     document.getElementById("editor").focus()
     ipcRenderer.on("save", Save.save)
     ipcRenderer.on("open", Editor.open)
+    ipcRenderer.on("openImage", Editor.openImage)
     ipcRenderer.on("getPathToOpen", Editor.getPathToOpen)
     ipcRenderer.on("error", showError)
-    ipcRenderer.once("float", toggleFloat)
     ipcRenderer.on("floatingIndicator", function(event, isFloating) {
         document.getElementById("floater").style.background = ["#71a4f7", "#ff9bbe"][~~isFloating]
     }),
+    ipcRenderer.on("changeSize", function(event, factor) {
+        switch(displayClass) {
+            case "editor":
+                Editor.changeFontSize(factor)
+                break;
+            default:
+                ipcRenderer.send("changeSize", displayClass, factor)
+        }
+    })
+    ipcRenderer.once("float", toggleFloat)
     ipcRenderer.once("restore", function(event, stash) {
         document.getElementById("editor").value = stash[0]
         for(
@@ -173,8 +220,6 @@ function listeners() {
         }
     })
     document.getElementById("editor").addEventListener("focus", function() {
-        if(document.getElementsByClassName("flex").length != 0){
-            purgeClass("flex")
-        }
+        destroyInput()
     })
 }
