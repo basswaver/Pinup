@@ -159,8 +159,8 @@ function toggleFloating(content, history) {
 // @auto-fold here
 function renderNew(restoring, stash) {
     let window = new electron.BrowserWindow({
-        width: 200,
-        height: 200,
+        width: 250,
+        height: 150,
         frame: false,
     })
     window.loadFile("src/root.html")
