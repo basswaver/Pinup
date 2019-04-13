@@ -1,12 +1,13 @@
 {
     "name": "Pinup",
-    "version": "0.4.0-a",
+    "version": "0.5.0",
     "description": "A floating notepad",
     "main": "main.js",
     "scripts": {
         "start": "electron .",
         "debug": "electron . --inspect=1313",
-        "build-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --prune=true --out=release-builds"
+        "build-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --prune=true --out=release-builds",
+        "build-linux": "electron-packager . --overwrite --platform=linux --arch=x64 --prune=true --out=release-builds"
     },
     "repository": {
         "type": "git",

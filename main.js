@@ -159,8 +159,8 @@ function toggleFloating(content, history) {
 // @auto-fold here
 function renderNew(restoring, stash) {
     let window = new electron.BrowserWindow({
-        width: 200,
-        height: 200,
+        width: 250,
+        height: 150,
         frame: false,
     })
     window.loadFile("src/root.html")
@@ -263,7 +263,7 @@ function buildMenu() {
                     click() {
                         electron.app.quit()
                     },
-                    accelerator: "Cmd+Q"
+                    accelerator: "Ctrl+Q"
                 },
             ]
         },
@@ -272,14 +272,14 @@ function buildMenu() {
             submenu: [
                 {
                     label: "Open",
-                    accelerator: "Cmd+O",
+                    accelerator: "Ctrl+O",
                     click() {
                         Calls.getPathToOpen(electron.BrowserWindow.getFocusedWindow())
                     }
                 },
                 {
                     label: "Save",
-                    accelerator: "Cmd+S",
+                    accelerator: "Ctrl+S",
                     click() {
                         Calls.save(electron.BrowserWindow.getFocusedWindow())
                     }
@@ -314,21 +314,21 @@ function buildMenu() {
             submenu: [
                 {
                     label: "Grow Font",
-                    accelerator: "Cmd+=",
+                    accelerator: "Ctrl+=",
                     click() {
                         Calls.changeSize(electron.BrowserWindow.getFocusedWindow(), 1.25)
                     }
                 },
                 {
                     label: "Shrink Font",
-                    accelerator: "Cmd+-",
+                    accelerator: "Ctrl+-",
                     click() {
                         Calls.changeSize(electron.BrowserWindow.getFocusedWindow(), .8)
                     }
                 },
                 {
                     label: "Settings",
-                    accelerator: "Cmd+,",
+                    accelerator: "Ctrl+,",
                     click() {
                         renderSettings()
                     }
@@ -346,14 +346,14 @@ function buildMenu() {
             submenu: [
                 {
                     label: "Float",
-                    accelerator: "Cmd+F",
+                    accelerator: "Ctrl+F",
                     click() {
                         Calls.float(electron.BrowserWindow.getFocusedWindow())
                     }
                 },
                 {
                     label: "New",
-                    accelerator: "Cmd+N",
+                    accelerator: "Ctrl+N",
                     click() {
                         renderNew()
                     }
